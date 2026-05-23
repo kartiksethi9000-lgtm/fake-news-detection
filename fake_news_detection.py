@@ -1,10 +1,3 @@
-# ============================================================
-#   FAKE NEWS DETECTION SYSTEM
-#   Author  : Kartik Sethi
-#   Tech    : Python, Scikit-learn, NLP, TF-IDF, ML
-#   Purpose : Classify news articles as REAL or FAKE
-# ============================================================
-
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
@@ -17,11 +10,6 @@ import re
 import string
 import warnings
 warnings.filterwarnings('ignore')
-
-# ────────────────────────────────────────────────────────────
-# STEP 1 — CREATE SAMPLE DATASET
-# (In real project use Kaggle "Fake and Real News Dataset")
-# ────────────────────────────────────────────────────────────
 
 real_news = [
     "Scientists discover new vaccine that shows 95% effectiveness against flu virus",
@@ -69,7 +57,7 @@ fake_news = [
     "Politician sold national secrets for personal gain insider reveals all",
 ]
 
-# Build DataFrame
+
 texts  = real_news + fake_news
 labels = [1] * len(real_news) + [0] * len(fake_news)   # 1=Real, 0=Fake
 
@@ -84,9 +72,6 @@ print(f"   Total samples : {len(df)}")
 print(f"   Real news     : {sum(df.label == 1)}")
 print(f"   Fake news     : {sum(df.label == 0)}")
 
-# ────────────────────────────────────────────────────────────
-# STEP 2 — TEXT PREPROCESSING
-# ────────────────────────────────────────────────────────────
 
 def preprocess_text(text):
     """Clean and normalize text for ML."""
@@ -102,9 +87,6 @@ print(f"\n🔧 Text Preprocessing — Sample")
 print(f"   Original : {df['text'][0][:60]}...")
 print(f"   Cleaned  : {df['clean_text'][0][:60]}...")
 
-# ────────────────────────────────────────────────────────────
-# STEP 3 — TRAIN / TEST SPLIT
-# ────────────────────────────────────────────────────────────
 
 X_train, X_test, y_train, y_test = train_test_split(
     df['clean_text'], df['label'],
@@ -115,13 +97,11 @@ print(f"\n📂 Train/Test Split (80/20)")
 print(f"   Training samples : {len(X_train)}")
 print(f"   Testing  samples : {len(X_test)}")
 
-# ────────────────────────────────────────────────────────────
-# STEP 4 — TF-IDF FEATURE EXTRACTION
-# ────────────────────────────────────────────────────────────
+
 
 tfidf = TfidfVectorizer(
     max_features=5000,
-    ngram_range=(1, 2),       # unigrams + bigrams
+    ngram_range=(1, 2),       
     stop_words='english',
     min_df=1
 )
@@ -133,9 +113,7 @@ print(f"\n📐 TF-IDF Feature Extraction")
 print(f"   Vocabulary size  : {len(tfidf.vocabulary_)}")
 print(f"   Feature matrix   : {X_train_tfidf.shape}")
 
-# ────────────────────────────────────────────────────────────
-# STEP 5 — MODEL TRAINING & EVALUATION
-# ────────────────────────────────────────────────────────────
+
 
 models = {
     "Logistic Regression" : LogisticRegression(max_iter=1000, random_state=42),
@@ -165,9 +143,6 @@ for name, model in models.items():
           f"Recall: {report['Real']['recall']:.2f}  "
           f"F1: {report['Real']['f1-score']:.2f}")
 
-# ────────────────────────────────────────────────────────────
-# STEP 6 — BEST MODEL SELECTION
-# ────────────────────────────────────────────────────────────
 
 best_name = max(results, key=lambda x: results[x]['accuracy'])
 best_model = results[best_name]['model']
@@ -175,9 +150,6 @@ best_model = results[best_name]['model']
 print(f"\n🏆 Best Model : {best_name}")
 print(f"   Accuracy   : {results[best_name]['accuracy'] * 100:.2f}%")
 
-# ────────────────────────────────────────────────────────────
-# STEP 7 — PREDICT ON NEW ARTICLES
-# ────────────────────────────────────────────────────────────
 
 def predict_news(article, model=best_model, vectorizer=tfidf):
     """Predict whether a news article is Real or Fake."""
@@ -205,7 +177,4 @@ for article in test_articles:
     print(f"\n  Article  : {article[:55]}...")
     print(f"  Result   : {label}  (Confidence: {confidence:.1f}%)")
 
-print(f"\n{'=' * 55}")
-print(f"  Project by Kartik Sethi | B.Tech CSE (AIML) 2023-27")
-print(f"  Gyan Ganga Institute of Technology & Sciences")
-print(f"{'=' * 55}\n")
+
