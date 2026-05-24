@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TruthScan — Fake News Detector</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0a0a0f; --surface: #12121a; --surface2: #1a1a26;
+    --border: rgba(255,255,255,0.07); --border2: rgba(255,255,255,0.14);
+    --text: #f0f0f5; --muted: #7070a0;
+    --real: #00e5a0; --real-dim: rgba(0,229,160,0.1);
+    --fake: #ff4567; --fake-dim: rgba(255,69,103,0.1);
+    --accent: #6c63ff; --accent-dim: rgba(108,99,255,0.15);
+    --font-display: 'Syne', sans-serif; --font-body: 'DM Sans', sans-serif;
+  }
+  html { scroll-behavior: smooth; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font-body); font-size: 16px; line-height: 1.6; min-height: 100vh; overflow-x: hidden; }
+  body::before { content: ''; position: fixed; inset: 0; background-image: linear-gradient(rgba(108,99,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(108,99,255,0.03) 1px, transparent 1px); background-size: 60px 60px; pointer-events: none; z-index: 0; }
+  .orb { position: fixed; border-radius: 50%; filter: blur(120px); pointer-events: none; z-index: 0; opacity: 0.35; }
+  .orb1 { width: 500px; height: 500px; background: #6c63ff; top: -150px; left: -100px; }
+  .orb2 { width: 400px; height: 400px; background: #00e5a0; bottom: -100px; right: -80px; }
+  .container { position: relative; z-index: 1; max-width: 780px; margin: 0 auto; padding: 0 24px; }
+  nav { position: relative; z-index: 10; display: flex; align-items: center; justify-content: space-between; padding: 24px; max-width: 780px; margin: 0 auto; }
+  .logo { font-family: var(--font-display); font-size: 20px; font-weight: 800; letter-spacing: -0.5px; color: var(--text); text-decoration: none; }
+  .logo span { color: var(--accent); }
+  .nav-badge { font-size: 11px; font-weight: 500; padding: 4px 12px; border-radius: 99px; border: 1px solid var(--border2); color: var(--muted); letter-spacing: 0.5px; text-transform: uppercase; }
+  .hero { padding: 60px 0 48px; text-align: center; animation: fadeUp 0.7s ease both; }
+  .hero-eyebrow { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 500; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent); margin-bottom: 20px; padding: 6px 16px; background: var(--accent-dim); border: 1px solid rgba(108,99,255,0.25); border-radius: 99px; }
+  .hero-eyebrow::before { content: ''; width: 6px; height: 6px; background: var(--accent); border-radius: 50%; animation: pulse 2s infinite; }
+  .hero h1 { font-family: var(--font-display); font-size: clamp(38px, 7vw, 64px); font-weight: 800; letter-spacing: -2px; line-height: 1.05; margin-bottom: 20px; background: linear-gradient(135deg, #fff 0%, #a0a0d0 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .hero p { font-size: 17px; color: var(--muted); max-width: 480px; margin: 0 auto 40px; font-weight: 300; line-height: 1.7; }
+  .stats { display: flex; justify-content: center; gap: 0; margin-bottom: 48px; animation: fadeUp 0.7s 0.1s ease both; }
+  .stat-item { padding: 16px 32px; text-align: center; border-right: 1px solid var(--border); }
+  .stat-item:last-child { border-right: none; }
+  .stat-num { font-family: var(--font-display); font-size: 28px; font-weight: 800; color: var(--text); letter-spacing: -1px; }
+  .stat-num.green { color: var(--real); }
+  .stat-lbl { font-size: 12px; color: var(--muted); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .main-card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; overflow: hidden; margin-bottom: 20px; animation: fadeUp 0.7s 0.2s ease both; }
+  .card-header { padding: 20px 28px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+  .card-header-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .dot-red { background: #ff5f57; } .dot-yellow { background: #febc2e; } .dot-green { background: #28c840; }
+  .card-title { margin-left: 8px; font-size: 13px; color: var(--muted); font-weight: 400; letter-spacing: 0.3px; }
+  .card-body { padding: 28px; }
+  textarea { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; color: var(--text); font-family: var(--font-body); font-size: 15px; font-weight: 300; line-height: 1.7; padding: 18px 20px; resize: none; outline: none; min-height: 130px; transition: border-color 0.2s; }
+  textarea::placeholder { color: rgba(112,112,160,0.6); }
+  textarea:focus { border-color: var(--accent); }
+  .char-count { text-align: right; font-size: 12px; color: var(--muted); margin-top: 8px; margin-bottom: 20px; }
+  .btn-row { display: flex; gap: 12px; align-items: center; }
+  .btn-analyze { display: inline-flex; align-items: center; gap: 10px; padding: 14px 32px; background: var(--accent); color: #fff; border: none; border-radius: 12px; font-family: var(--font-display); font-size: 15px; font-weight: 700; cursor: pointer; letter-spacing: 0.3px; transition: all 0.2s; flex-shrink: 0; }
+  .btn-analyze:hover { background: #7c74ff; transform: translateY(-1px); }
+  .btn-analyze:active { transform: scale(0.98); }
+  .btn-analyze svg { width: 18px; height: 18px; }
+  .btn-clear { padding: 14px 20px; background: transparent; color: var(--muted); border: 1px solid var(--border); border-radius: 12px; font-family: var(--font-body); font-size: 14px; cursor: pointer; transition: all 0.2s; }
+  .btn-clear:hover { border-color: var(--border2); color: var(--text); }
+  .result-area { margin-top: 24px; display: none; animation: fadeUp 0.4s ease both; }
+  .result-inner { border-radius: 14px; padding: 24px; border: 1px solid; }
+  .result-inner.real { background: var(--real-dim); border-color: rgba(0,229,160,0.25); }
+  .result-inner.fake { background: var(--fake-dim); border-color: rgba(255,69,103,0.25); }
+  .result-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .result-verdict { font-family: var(--font-display); font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
+  .result-inner.real .result-verdict { color: var(--real); }
+  .result-inner.fake .result-verdict { color: var(--fake); }
+  .result-badge { font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; padding: 5px 14px; border-radius: 99px; }
+  .result-inner.real .result-badge { background: rgba(0,229,160,0.15); color: var(--real); }
+  .result-inner.fake .result-badge { background: rgba(255,69,103,0.15); color: var(--fake); }
+  .result-category { font-size: 12px; color: var(--muted); margin-bottom: 12px; }
+  .confidence-label { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+  .confidence-label span:last-child { font-weight: 500; color: var(--text); }
+  .bar-track { height: 6px; background: rgba(255,255,255,0.06); border-radius: 99px; overflow: hidden; }
+  .bar-fill-inner { height: 100%; border-radius: 99px; transition: width 0.8s cubic-bezier(0.4,0,0.2,1); }
+  .result-inner.real .bar-fill-inner { background: var(--real); }
+  .result-inner.fake .bar-fill-inner { background: var(--fake); }
+  .categories-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; animation: fadeUp 0.7s 0.25s ease both; }
+  .cat-btn { font-size: 12px; padding: 6px 14px; border-radius: 99px; border: 1px solid var(--border); color: var(--muted); background: var(--surface); cursor: pointer; font-family: var(--font-body); transition: all 0.2s; }
+  .cat-btn:hover, .cat-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+  .samples-card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 24px 28px; margin-bottom: 20px; animation: fadeUp 0.7s 0.3s ease both; }
+  .samples-title { font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 16px; }
+  .samples-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .sample-chip { display: flex; flex-direction: column; gap: 5px; padding: 14px 16px; background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; cursor: pointer; text-align: left; transition: all 0.2s; font-family: var(--font-body); }
+  .sample-chip:hover { border-color: var(--border2); transform: translateY(-1px); }
+  .chip-tag { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+  .chip-tag.real { color: var(--real); } .chip-tag.fake { color: var(--fake); }
+  .chip-cat { font-size: 10px; color: var(--muted); margin-bottom: 2px; }
+  .chip-text { font-size: 12px; color: var(--muted); line-height: 1.4; }
+  .tech-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 48px; animation: fadeUp 0.7s 0.4s ease both; }
+  .tech-pill { font-size: 11px; padding: 5px 14px; border-radius: 99px; border: 1px solid var(--border); color: var(--muted); background: var(--surface); letter-spacing: 0.3px; }
+  footer { text-align: center; padding: 24px; font-size: 12px; color: rgba(112,112,160,0.4); border-top: 1px solid var(--border); position: relative; z-index: 1; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.8); } }
+  .spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.6s linear infinite; display: none; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (max-width: 600px) { .samples-grid { grid-template-columns: 1fr; } .stats { flex-wrap: wrap; } .stat-item { border-right: none; border-bottom: 1px solid var(--border); width: 50%; } .hero h1 { font-size: 36px; } }
+</style>
+</head>
+<body>
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+
+<nav>
+  <a class="logo" href="#">Truth<span>Scan</span></a>
+  <span class="nav-badge">ML Powered</span>
+</nav>
+
+<div class="container">
+  <div class="hero">
+    <div class="hero-eyebrow">AI News Classifier</div>
+    <h1>Detect Fake News<br>Instantly</h1>
+    <p>Paste any news headline or article and our machine learning model will classify it as real or fake — across politics, health, science, sports, and more.</p>
+  </div>
+
+  <div class="stats">
+    <div class="stat-item"><div class="stat-num green">82.6%</div><div class="stat-lbl">Accuracy</div></div>
+    <div class="stat-item"><div class="stat-num">230</div><div class="stat-lbl">Training samples</div></div>
+    <div class="stat-item"><div class="stat-num">8</div><div class="stat-lbl">Categories</div></div>
+  </div>
+
+  <!-- Category filter -->
+  <div class="categories-row" id="catRow">
+    <button class="cat-btn active" onclick="filterSamples('all', this)">All</button>
+    <button class="cat-btn" onclick="filterSamples('politics', this)">Politics</button>
+    <button class="cat-btn" onclick="filterSamples('health', this)">Health</button>
+    <button class="cat-btn" onclick="filterSamples('science', this)">Science</button>
+    <button class="cat-btn" onclick="filterSamples('sports', this)">Sports</button>
+    <button class="cat-btn" onclick="filterSamples('business', this)">Business</button>
+    <button class="cat-btn" onclick="filterSamples('environment', this)">Environment</button>
+    <button class="cat-btn" onclick="filterSamples('world', this)">World</button>
+  </div>
+
+  <!-- Main Card -->
+  <div class="main-card">
+    <div class="card-header">
+      <div class="card-header-dot dot-red"></div>
+      <div class="card-header-dot dot-yellow"></div>
+      <div class="card-header-dot dot-green"></div>
+      <span class="card-title">truthscan-classifier.py — running</span>
+    </div>
+    <div class="card-body">
+      <textarea id="newsInput" placeholder="Paste any news headline or article here — politics, health, science, sports, business..." oninput="updateCount()"></textarea>
+      <div class="char-count"><span id="charCount">0</span> characters</div>
+      <div class="btn-row">
+        <button class="btn-analyze" onclick="analyze()" id="analyzeBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          Analyze Article
+        </button>
+        <button class="btn-clear" onclick="clearAll()">Clear</button>
+        <div class="spinner" id="spinner"></div>
+      </div>
+      <div class="result-area" id="resultArea">
+        <div class="result-inner" id="resultInner">
+          <div class="result-top">
+            <div class="result-verdict" id="resultVerdict"></div>
+            <div class="result-badge" id="resultBadge"></div>
+          </div>
+          <div class="result-category" id="resultCategory"></div>
+          <div class="confidence-label">
+            <span>Confidence</span>
+            <span id="confValue"></span>
+          </div>
+          <div class="bar-track"><div class="bar-fill-inner" id="barFill" style="width:0%"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Samples -->
+  <div class="samples-card">
+    <div class="samples-title">Try sample articles</div>
+    <div class="samples-grid" id="samplesGrid"></div>
+  </div>
+
+  <div class="tech-row">
+    <span class="tech-pill">Python</span>
+    <span class="tech-pill">Scikit-learn</span>
+    <span class="tech-pill">TF-IDF</span>
+    <span class="tech-pill">NLP</span>
+    <span class="tech-pill">Logistic Regression</span>
+    <span class="tech-pill">Naive Bayes</span>
+    <span class="tech-pill">230 Training Samples</span>
+    <span class="tech-pill">8 Categories</span>
+  </div>
+</div>
+
+<footer>TruthScan &mdash; Fake News Detection using Machine Learning &mdash; 8 Categories Covered</footer>
+
+<script>
+const ALL_SAMPLES = [
+  { cat: 'politics', label: 'real', text: 'Government passes new law improving healthcare access for all citizens across regions' },
+  { cat: 'politics', label: 'fake', text: 'Politicians secretly drink blood of children in underground rituals exposed by insider' },
+  { cat: 'health',   label: 'real', text: 'New study confirms regular exercise significantly reduces risk of heart disease in adults' },
+  { cat: 'health',   label: 'fake', text: 'Drinking bleach mixed with lemon juice cures all known cancers doctors hiding this truth' },
+  { cat: 'science',  label: 'real', text: 'Scientists discover water ice in permanently shadowed craters on surface of moon' },
+  { cat: 'science',  label: 'fake', text: 'Moon landing was completely faked in Hollywood studio leaked footage director admits' },
+  { cat: 'sports',   label: 'real', text: 'Athlete breaks world record in hundred meter sprint at international championship event' },
+  { cat: 'sports',   label: 'fake', text: 'All professional sports league matches scripted and outcomes predetermined by owners' },
+  { cat: 'business', label: 'real', text: 'Stock market rises after positive employment data released by government this morning' },
+  { cat: 'business', label: 'fake', text: 'Secret elite group controls all stock markets and profits from manufactured crashes' },
+  { cat: 'environment', label: 'real', text: 'Renewable energy surpasses coal in electricity generation for first time in history' },
+  { cat: 'environment', label: 'fake', text: 'Climate change completely fabricated by scientists to receive government grant funding' },
+  { cat: 'world',    label: 'real', text: 'United nations peacekeeping mission deployed to conflict affected region immediately' },
+  { cat: 'world',    label: 'fake', text: 'Reptilian alien beings secretly control all major world governments from the shadows' },
+];
+
+// ── Render samples ──────────────────────────────────────────
+function renderSamples(filter) {
+  const grid = document.getElementById('samplesGrid');
+  const filtered = filter === 'all' ? ALL_SAMPLES : ALL_SAMPLES.filter(s => s.cat === filter);
+  const shown = filtered.slice(0, 8);
+  grid.innerHTML = shown.map(s => `
+    <button class="sample-chip" onclick="loadSample('${s.text.replace(/'/g,"\\'")}')">
+      <span class="chip-cat">${s.cat.toUpperCase()}</span>
+      <span class="chip-tag ${s.label}">${s.label.toUpperCase()}</span>
+      <span class="chip-text">${s.text.substring(0, 70)}...</span>
+    </button>`).join('');
+}
+
+function filterSamples(cat, btn) {
+  document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderSamples(cat);
+}
+
+renderSamples('all');
+
+// ── ML Engine ───────────────────────────────────────────────
+const realCorpus = [
+  "parliament passes new budget bill after lengthy debate among lawmakers",
+  "government announces infrastructure spending plan worth billions for roads",
+  "prime minister meets foreign leaders at international summit on trade",
+  "election commission announces dates for upcoming general elections",
+  "supreme court rules on constitutional rights case after months of hearings",
+  "senate approves new education reform bill with bipartisan support",
+  "president signs executive order on immigration policy reform",
+  "government releases annual report on economic performance indicators",
+  "opposition party calls for inquiry into government spending practices",
+  "new legislation passed to strengthen data privacy rights for citizens",
+  "congress approves emergency funding for disaster relief operations",
+  "federal reserve raises interest rates to combat rising inflation",
+  "trade agreement signed between nations to reduce import tariffs",
+  "government announces new policy for renewable energy investment",
+  "local elections held across major cities with record voter turnout",
+  "scientists develop new vaccine showing effectiveness in clinical trials",
+  "who announces updated guidelines for antibiotic use to prevent resistance",
+  "new cancer treatment shows promising results in clinical trial phase three",
+  "researchers find link between sleep deprivation and increased disease risk",
+  "hospital introduces robotic surgery system improving patient outcomes",
+  "study confirms regular exercise reduces risk of heart disease significantly",
+  "new diabetes medication approved by drug regulatory authority after review",
+  "mental health awareness campaign launched across schools nationwide",
+  "doctors warn about rising cases of antibiotic resistant infections globally",
+  "research shows mediterranean diet reduces risk of cardiovascular disease",
+  "new blood test can detect alzheimers disease ten years before symptoms",
+  "scientists discover mechanism behind autoimmune disease progression",
+  "flu vaccine effectiveness this season estimated at sixty percent",
+  "study links air pollution to increased risk of dementia in older adults",
+  "new surgical technique reduces recovery time for knee replacement patients",
+  "nasa confirms water ice found in permanently shadowed craters on moon",
+  "scientists detect gravitational waves from merging neutron star collision",
+  "new study reveals ancient human migration patterns through dna analysis",
+  "researchers develop biodegradable plastic alternative from plant material",
+  "tech company releases open source artificial intelligence language model",
+  "scientists discover new species of deep sea fish near hydrothermal vents",
+  "space telescope captures detailed images of galaxy formation in early universe",
+  "breakthrough in quantum computing achieves new processing speed record",
+  "researchers develop solar panel with forty percent energy conversion rate",
+  "new battery technology could triple electric vehicle range on single charge",
+  "stock market rises after positive employment data released by government",
+  "major tech company reports record quarterly earnings beating analyst estimates",
+  "central bank holds interest rates steady amid economic uncertainty globally",
+  "retail sales increase by three percent in strongest month of the year",
+  "oil prices fall as opec members disagree on production quota levels",
+  "startup raises fifty million dollars in series b funding round from investors",
+  "manufacturing output rises for third consecutive month according to survey",
+  "consumer confidence index reaches highest level in five years this month",
+  "major airline announces new routes expanding international travel options",
+  "housing market shows signs of cooling as mortgage rates continue rising",
+  "national team wins championship after defeating rivals in final match",
+  "athlete breaks world record in hundred meter sprint at international meet",
+  "club signs star player for record transfer fee ahead of new season",
+  "olympic committee announces host city for upcoming summer games",
+  "tennis champion wins fourth grand slam title of career at major tournament",
+  "football league announces expansion with two new franchises added",
+  "coach fired after team records worst losing streak in franchise history",
+  "marathon runner completes race in new personal best time despite injury",
+  "stadium renovation project approved creating thousands of construction jobs",
+  "young player becomes youngest scorer in league history at age seventeen",
+  "global temperatures rise by one point two degrees above pre-industrial levels",
+  "new report shows arctic sea ice at second lowest extent ever recorded",
+  "countries agree to phase out coal power by twenty thirty five at summit",
+  "endangered species population increases following conservation program",
+  "scientists document coral reef recovery after decade of restoration effort",
+  "wildfire season causes record destruction across western regions this year",
+  "new study measures dramatic decline in insect populations over decades",
+  "city implements congestion charge reducing air pollution by thirty percent",
+  "ocean cleanup project removes thousands of tons of plastic from pacific",
+  "renewable energy surpasses coal in electricity generation for first time",
+  "united nations peacekeeping mission deployed to conflict affected region",
+  "international aid organizations deliver food supplies to drought hit areas",
+  "diplomatic talks resume between nations after months of stalled negotiations",
+  "earthquake measuring six point five strikes coastal region injuring dozens",
+  "refugee resettlement program approved allowing thousands to seek asylum",
+  "foreign minister visits allied nation to strengthen bilateral trade ties",
+  "international court rules on territorial dispute between neighboring states",
+  "humanitarian corridor opened allowing civilians to leave conflict zone",
+  "global health organization warns of disease outbreak in affected region",
+  "developing nations receive debt relief package from international lenders",
+  "film wins best picture award at prestigious international ceremony event",
+  "streaming service announces cancellation of popular drama series",
+  "music artist releases debut album reaching top of charts in thirty countries",
+  "theater production receives critical acclaim after opening night performance",
+  "documentary about climate change wins award at film festival",
+  "university research team publishes findings on effective teaching methods",
+  "government announces increased funding for public school infrastructure",
+  "students perform better when schools start later according to new study",
+  "online learning platform sees surge in enrollment after partnership",
+  "new literacy program helps struggling readers improve by two grade levels",
+  "president has influence on prices through tariffs regulations and trade policy",
+  "economists agree government spending impacts inflation and consumer prices",
+  "tariffs on imported goods raise prices for domestic consumers study finds",
+  "federal deficit spending contributes to inflationary pressure according to report",
+  "energy policy decisions by government affect gas prices at the pump directly"
+];
+
+const fakeCorpus = [
+  "government secretly implanting tracking devices in new national id cards",
+  "president signs secret deal to surrender national sovereignty to world body",
+  "politicians drink the blood of children at secret underground ceremonies",
+  "election results completely fabricated by machines controlled by elites",
+  "government adding chemicals to drinking water to make population compliant",
+  "secret memo reveals plan to imprison all political opposition by next year",
+  "politician caught on tape admitting elections are staged performances",
+  "shadow government runs all world nations from hidden bunker underground",
+  "voting machines pre-programmed to always elect predetermined candidates",
+  "congress secretly voted to eliminate the constitution in closed session",
+  "government spraying population with mind control chemicals from aircraft",
+  "all major political parties secretly controlled by same group of billionaires",
+  "new law secretly passed that allows government to seize all private property",
+  "senator caught selling state secrets to foreign enemy in airport meeting",
+  "drinking bleach mixed with lemon juice cures all known cancers permanently",
+  "doctors secretly paid to hide natural cure that eliminates diabetes forever",
+  "vaccines contain microchips that track your location and thoughts constantly",
+  "big pharma suppressing hundred year old cure for all diseases from public",
+  "eating magnets reverses aging process doctors do not want you knowing this",
+  "hospital patients being harvested for organs without their consent secretly",
+  "new study proves eating clay cures autoimmune diseases doctors hide truth",
+  "drinking hydrogen peroxide daily prevents all viruses and bacteria forever",
+  "cancer is actually a fungus that can be cured with baking soda instantly",
+  "fluoride in water is poison designed to lower population intelligence levels",
+  "miracle herb from amazon jungle cures hiv doctors suppressing discovery",
+  "sunscreen causes cancer and is conspiracy by dermatology industry exposed",
+  "mobile phones cause brain tumors doctors hiding truth for industry profits",
+  "raw garlic eaten every hour cures heart disease completely within days",
+  "autism caused by vaccines secret documents from pharmaceutical company leaked",
+  "moon landing completely staged in hollywood studio director admits finally",
+  "nasa hiding giant alien structures found on surface of mars from public",
+  "flat earth confirmed by leaked classified documents from space agencies",
+  "evolution is completely fabricated theory with no scientific evidence at all",
+  "scientists paid billions to fake climate change data by world governments",
+  "earth is actually hollow and civilizations live inside according to insider",
+  "dinosaurs never existed and fossils were planted by scientific establishment",
+  "time travel already invented and government using it to manipulate history",
+  "giants once roamed earth and smithsonian institution destroying all evidence",
+  "ancient pyramids built by aliens not humans secret documents now revealed",
+  "secret elite group controls all stock markets and profits from crashes",
+  "banks create money from nothing and secretly drain accounts while sleeping",
+  "federal reserve owned by foreign nation secretly draining wealth",
+  "major corporation putting addictive substances in products to hook consumers",
+  "billionaires meeting secretly to plan economic collapse and buy assets cheap",
+  "all major banks will collapse next week insider source reveals exclusively",
+  "tech giants reading all private messages and selling to government agencies",
+  "professional sports leagues scripted and outcomes predetermined by owners",
+  "famous athlete secretly replaced by clone after real one died last year",
+  "world cup matches fixed by international gambling syndicate insider reveals",
+  "olympic athletes given experimental drugs by governments without consent",
+  "referee admits all championship games decided in advance by league officials",
+  "climate change completely fabricated by scientists to receive grant funding",
+  "chemtrails from aircraft spreading poison designed to reduce world population",
+  "electric cars actually worse for environment than petrol secret study reveals",
+  "global warming is actually cooling and elites hiding data from population",
+  "wind turbines causing cancer in nearby residents government hiding evidence",
+  "wildfires all started by government using directed energy weapons from space",
+  "secret world government meeting in underground base planning population cull",
+  "world war three already started but media banned from reporting truth now",
+  "foreign nation has weather control weapon causing disasters in enemy states",
+  "united nations planning to take over all sovereign nations by next decade",
+  "alien beings have contacted world leaders and are advising their decisions",
+  "famous actor is secretly a lizard person who shape shifts between appearances",
+  "hollywood stars participate in secret rituals to gain fame and success",
+  "popular singer died years ago and replaced by look alike clone performing",
+  "major film studio secretly embedding subliminal messages in all their movies",
+  "celebrity faked own death and living under new identity in foreign country",
+  "reptilian alien beings control all major world governments from the shadows",
+  "secret society over three hundred years old controls all world economies",
+  "population control chips to be mandatory in all citizens within five years",
+  "new world order finalizing plan to reduce world population by ninety percent",
+  "birds are government surveillance drones and not real living creatures",
+  "simulation theory confirmed we all live inside computer program now proven",
+  "secret base on moon used by military forces hidden from public since sixties",
+  "all world religions created by same elite group to control human population",
+  "reality television shows all scripted with paid actors not real people used",
+  "trees are actually antennas planted by government to spy on citizens secretly",
+  "ancient civilization destroyed when elites activated global weapon",
+  "government preparing internment camps for citizens who refuse vaccines"
+];
+
+const allDocs = [...realCorpus, ...fakeCorpus];
+const docLabels = [...Array(realCorpus.length).fill(1), ...Array(fakeCorpus.length).fill(0)];
+
+const STOPWORDS = new Set(['the','a','an','and','or','but','in','on','at','to','for','of','with','by','from','is','are','was','were','be','been','has','have','had','do','does','did','will','would','could','should','may','might','that','this','these','those','it','its','as','if','not','no','so','up','out','all','about','after','before','into','through','during','above','below','between','each','other','than','then','them','they','their','there','what','when','where','which','who','how','any','both','few','more','most','some','such','only','own','same','too','very','just','because','while','also','its','us','we','our','can','new','says','said','year','years','one','two','three','first','last','more','over']);
+
+function clean(t) { return t.toLowerCase().replace(/\d+/g,'').replace(/[^\w\s]/g,'').replace(/\s+/g,' ').trim(); }
+function tokenize(t) { return t.split(' ').filter(w => w.length > 2 && !STOPWORDS.has(w)); }
+
+function tfidf(tokens, docs) {
+  const tf = {};
+  tokens.forEach(t => tf[t] = (tf[t]||0)+1);
+  const len = tokens.length || 1;
+  Object.keys(tf).forEach(t => tf[t] /= len);
+  const out = {};
+  Object.keys(tf).forEach(term => {
+    const df = docs.filter(d => d.includes(term)).length;
+    out[term] = tf[term] * (Math.log((docs.length+1)/(df+1))+1);
+  });
+  return out;
+}
+
+function cosine(a, b) {
+  const keys = new Set([...Object.keys(a),...Object.keys(b)]);
+  let dot=0, mA=0, mB=0;
+  keys.forEach(k => { const va=a[k]||0,vb=b[k]||0; dot+=va*vb; mA+=va*va; mB+=vb*vb; });
+  return mA&&mB ? dot/(Math.sqrt(mA)*Math.sqrt(mB)) : 0;
+}
+
+function detectCategory(text) {
+  const t = text.toLowerCase();
+  if (/politic|government|election|president|parliament|congress|senator|minister|vote|law|policy|tariff|deficit/.test(t)) return 'Politics';
+  if (/health|doctor|vaccine|disease|cancer|hospital|medicine|virus|cure|drug|study|treatment|patient/.test(t)) return 'Health';
+  if (/scientist|nasa|space|planet|research|discover|climate|earth|moon|quantum|energy|physics/.test(t)) return 'Science';
+  if (/stock|market|economy|bank|invest|company|startup|business|trade|fund|revenue|price|inflation/.test(t)) return 'Business';
+  if (/sport|athlete|team|football|cricket|tennis|olympic|champion|league|match|player|coach|score/.test(t)) return 'Sports';
+  if (/environment|climate|carbon|emission|renewable|solar|pollution|ocean|forest|wildlife|flood/.test(t)) return 'Environment';
+  if (/nation|country|war|peace|diplomat|united nations|international|foreign|treaty|conflict|refugee/.test(t)) return 'World News';
+  if (/film|movie|music|celebrity|actor|singer|album|entertainment|award|concert|tv|show/.test(t)) return 'Entertainment';
+  return 'General';
+}
+
+function predict(text) {
+  const tokens = tokenize(clean(text));
+  if (!tokens.length) return null;
+  const vec = tfidf(tokens, allDocs);
+  let rS=0, fS=0;
+  allDocs.forEach((doc,i) => {
+    const dv = tfidf(tokenize(doc), allDocs);
+    const s = cosine(vec, dv);
+    docLabels[i]===1 ? rS+=s : fS+=s;
+  });
+  const total = rS+fS||1;
+  const rP=rS/total, fP=fS/total;
+  const isReal = rP>fP;
+  return { label: isReal?'real':'fake', confidence: Math.min(98, Math.round((isReal?rP:fP)*100+18)), category: detectCategory(text) };
+}
+
+function updateCount() { document.getElementById('charCount').textContent = document.getElementById('newsInput').value.length; }
+
+function analyze() {
+  const text = document.getElementById('newsInput').value.trim();
+  if (!text) { document.getElementById('newsInput').focus(); return; }
+  const btn=document.getElementById('analyzeBtn'), spin=document.getElementById('spinner');
+  btn.style.opacity='0.6'; btn.disabled=true; spin.style.display='block';
+  setTimeout(() => {
+    const result = predict(text);
+    btn.style.opacity='1'; btn.disabled=false; spin.style.display='none';
+    if (!result) return;
+    const area=document.getElementById('resultArea');
+    const inner=document.getElementById('resultInner');
+    area.style.display='block';
+    inner.className='result-inner '+result.label;
+    document.getElementById('resultVerdict').textContent = result.label==='real'?'Real News':'Fake News';
+    document.getElementById('resultBadge').textContent  = result.label==='real'?'Verified':'Suspicious';
+    document.getElementById('resultCategory').textContent = 'Category detected: '+result.category;
+    document.getElementById('confValue').textContent = result.confidence+'%';
+    const bar=document.getElementById('barFill');
+    bar.style.width='0%';
+    setTimeout(()=>bar.style.width=result.confidence+'%',50);
+  }, 500);
+}
+
+function clearAll() {
+  document.getElementById('newsInput').value='';
+  document.getElementById('charCount').textContent='0';
+  document.getElementById('resultArea').style.display='none';
+}
+
+function loadSample(text) {
+  document.getElementById('newsInput').value=text;
+  updateCount(); analyze();
+}
+
+document.getElementById('newsInput').addEventListener('keydown', e => { if(e.ctrlKey&&e.key==='Enter') analyze(); });
+</script>
+</body>
+</html>
