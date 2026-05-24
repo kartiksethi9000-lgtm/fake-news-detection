@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TruthScan — Fake News Detector</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a26;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.14);
+    --text: #f0f0f5;
+    --muted: #7070a0;
+    --real: #00e5a0;
+    --real-dim: rgba(0,229,160,0.1);
+    --fake: #ff4567;
+    --fake-dim: rgba(255,69,103,0.1);
+    --accent: #6c63ff;
+    --accent-dim: rgba(108,99,255,0.15);
+    --font-display: 'Syne', sans-serif;
+    --font-body: 'DM Sans', sans-serif;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 16px;
+    line-height: 1.6;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Background grid ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(108,99,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(108,99,255,0.03) 1px, transparent 1px);
+    background-size: 60px 60px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── Glow orbs ── */
+  .orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(120px);
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.35;
+  }
+  .orb1 { width: 500px; height: 500px; background: #6c63ff; top: -150px; left: -100px; }
+  .orb2 { width: 400px; height: 400px; background: #00e5a0; bottom: -100px; right: -80px; }
+
+  /* ── Layout ── */
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  /* ── Nav ── */
+  nav {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 24px;
+    max-width: 780px;
+    margin: 0 auto;
+  }
+  .logo {
+    font-family: var(--font-display);
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    color: var(--text);
+    text-decoration: none;
+  }
+  .logo span { color: var(--accent); }
+  .nav-badge {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 4px 12px;
+    border-radius: 99px;
+    border: 1px solid var(--border2);
+    color: var(--muted);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  /* ── Hero ── */
+  .hero {
+    padding: 60px 0 48px;
+    text-align: center;
+    animation: fadeUp 0.7s ease both;
+  }
+  .hero-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 20px;
+    padding: 6px 16px;
+    background: var(--accent-dim);
+    border: 1px solid rgba(108,99,255,0.25);
+    border-radius: 99px;
+  }
+  .hero-eyebrow::before { content: ''; width: 6px; height: 6px; background: var(--accent); border-radius: 50%; animation: pulse 2s infinite; }
+  .hero h1 {
+    font-family: var(--font-display);
+    font-size: clamp(38px, 7vw, 64px);
+    font-weight: 800;
+    letter-spacing: -2px;
+    line-height: 1.05;
+    margin-bottom: 20px;
+    background: linear-gradient(135deg, #fff 0%, #a0a0d0 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .hero p {
+    font-size: 17px;
+    color: var(--muted);
+    max-width: 480px;
+    margin: 0 auto 40px;
+    font-weight: 300;
+    line-height: 1.7;
+  }
+
+  /* ── Stats row ── */
+  .stats {
+    display: flex;
+    justify-content: center;
+    gap: 0;
+    margin-bottom: 48px;
+    animation: fadeUp 0.7s 0.1s ease both;
+  }
+  .stat-item {
+    padding: 16px 32px;
+    text-align: center;
+    border-right: 1px solid var(--border);
+  }
+  .stat-item:last-child { border-right: none; }
+  .stat-num {
+    font-family: var(--font-display);
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--text);
+    letter-spacing: -1px;
+  }
+  .stat-num.green { color: var(--real); }
+  .stat-lbl { font-size: 12px; color: var(--muted); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* ── Main card ── */
+  .main-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    overflow: hidden;
+    margin-bottom: 20px;
+    animation: fadeUp 0.7s 0.2s ease both;
+  }
+  .card-header {
+    padding: 20px 28px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .card-header-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .dot-red { background: #ff5f57; }
+  .dot-yellow { background: #febc2e; }
+  .dot-green { background: #28c840; }
+  .card-title {
+    margin-left: 8px;
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 400;
+    letter-spacing: 0.3px;
+  }
+  .card-body { padding: 28px; }
+
+  textarea {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 15px;
+    font-weight: 300;
+    line-height: 1.7;
+    padding: 18px 20px;
+    resize: none;
+    outline: none;
+    min-height: 130px;
+    transition: border-color 0.2s;
+  }
+  textarea::placeholder { color: rgba(112,112,160,0.6); }
+  textarea:focus { border-color: var(--accent); }
+
+  .char-count {
+    text-align: right;
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 8px;
+    margin-bottom: 20px;
+  }
+
+  .btn-row { display: flex; gap: 12px; align-items: center; }
+
+  .btn-analyze {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 32px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 0.3px;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  .btn-analyze:hover { background: #7c74ff; transform: translateY(-1px); }
+  .btn-analyze:active { transform: scale(0.98); }
+  .btn-analyze svg { width: 18px; height: 18px; }
+
+  .btn-clear {
+    padding: 14px 20px;
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    font-family: var(--font-body);
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-clear:hover { border-color: var(--border2); color: var(--text); }
+
+  /* ── Result ── */
+  .result-area {
+    margin-top: 24px;
+    display: none;
+    animation: fadeUp 0.4s ease both;
+  }
+  .result-inner {
+    border-radius: 14px;
+    padding: 24px;
+    border: 1px solid;
+  }
+  .result-inner.real {
+    background: var(--real-dim);
+    border-color: rgba(0,229,160,0.25);
+  }
+  .result-inner.fake {
+    background: var(--fake-dim);
+    border-color: rgba(255,69,103,0.25);
+  }
+  .result-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .result-verdict {
+    font-family: var(--font-display);
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+  .result-inner.real .result-verdict { color: var(--real); }
+  .result-inner.fake .result-verdict { color: var(--fake); }
+  .result-badge {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 5px 14px;
+    border-radius: 99px;
+  }
+  .result-inner.real .result-badge { background: rgba(0,229,160,0.15); color: var(--real); }
+  .result-inner.fake .result-badge { background: rgba(255,69,103,0.15); color: var(--fake); }
+  .confidence-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .confidence-label span:last-child { font-weight: 500; color: var(--text); }
+  .bar-track {
+    height: 6px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 99px;
+    overflow: hidden;
+  }
+  .bar-fill-inner {
+    height: 100%;
+    border-radius: 99px;
+    transition: width 0.8s cubic-bezier(0.4,0,0.2,1);
+  }
+  .result-inner.real .bar-fill-inner { background: var(--real); }
+  .result-inner.fake .bar-fill-inner { background: var(--fake); }
+
+  /* ── Samples ── */
+  .samples-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 24px 28px;
+    margin-bottom: 20px;
+    animation: fadeUp 0.7s 0.3s ease both;
+  }
+  .samples-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 16px;
+  }
+  .samples-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .sample-chip {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 14px 16px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s;
+    font-family: var(--font-body);
+  }
+  .sample-chip:hover { border-color: var(--border2); transform: translateY(-1px); }
+  .chip-tag {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .chip-tag.real { color: var(--real); }
+  .chip-tag.fake { color: var(--fake); }
+  .chip-text { font-size: 12px; color: var(--muted); line-height: 1.4; }
+
+  /* ── Tech pills ── */
+  .tech-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    margin-bottom: 48px;
+    animation: fadeUp 0.7s 0.4s ease both;
+  }
+  .tech-pill {
+    font-size: 11px;
+    padding: 5px 14px;
+    border-radius: 99px;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    background: var(--surface);
+    letter-spacing: 0.3px;
+  }
+
+  /* ── Footer ── */
+  footer {
+    text-align: center;
+    padding: 24px;
+    font-size: 12px;
+    color: rgba(112,112,160,0.4);
+    border-top: 1px solid var(--border);
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── Animations ── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: 0.5; transform: scale(0.8); }
+  }
+
+  /* ── Loading spinner ── */
+  .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    display: none;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @media (max-width: 600px) {
+    .samples-grid { grid-template-columns: 1fr; }
+    .stats { flex-wrap: wrap; }
+    .stat-item { border-right: none; border-bottom: 1px solid var(--border); width: 50%; }
+    .hero h1 { font-size: 36px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+
+<nav>
+  <a class="logo" href="#">Truth<span>Scan</span></a>
+  <span class="nav-badge">ML Powered</span>
+</nav>
+
+<div class="container">
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-eyebrow">AI News Classifier</div>
+    <h1>Detect Fake News<br>Instantly</h1>
+    <p>Paste any news headline or article and our machine learning model will classify it as real or fake in seconds.</p>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat-item">
+      <div class="stat-num green">87.5%</div>
+      <div class="stat-lbl">Accuracy</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">40</div>
+      <div class="stat-lbl">Training samples</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">2</div>
+      <div class="stat-lbl">ML models</div>
+    </div>
+  </div>
+
+  <!-- Main Card -->
+  <div class="main-card">
+    <div class="card-header">
+      <div class="card-header-dot dot-red"></div>
+      <div class="card-header-dot dot-yellow"></div>
+      <div class="card-header-dot dot-green"></div>
+      <span class="card-title">news-classifier.py — running</span>
+    </div>
+    <div class="card-body">
+      <textarea id="newsInput" placeholder="Paste your news headline or article here..." oninput="updateCount()"></textarea>
+      <div class="char-count"><span id="charCount">0</span> characters</div>
+      <div class="btn-row">
+        <button class="btn-analyze" onclick="analyze()" id="analyzeBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+          </svg>
+          Analyze Article
+        </button>
+        <button class="btn-clear" onclick="clearAll()">Clear</button>
+        <div class="spinner" id="spinner"></div>
+      </div>
+
+      <!-- Result -->
+      <div class="result-area" id="resultArea">
+        <div class="result-inner" id="resultInner">
+          <div class="result-top">
+            <div class="result-verdict" id="resultVerdict"></div>
+            <div class="result-badge" id="resultBadge"></div>
+          </div>
+          <div class="confidence-label">
+            <span>Confidence</span>
+            <span id="confValue"></span>
+          </div>
+          <div class="bar-track">
+            <div class="bar-fill-inner" id="barFill" style="width: 0%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Samples -->
+  <div class="samples-card">
+    <div class="samples-title">Try sample articles</div>
+    <div class="samples-grid">
+      <button class="sample-chip" onclick="loadSample(this.dataset.text)" data-text="Scientists discover new vaccine that shows 95% effectiveness against flu virus in clinical trials conducted globally">
+        <span class="chip-tag real">Real</span>
+        <span class="chip-text">Scientists discover vaccine with 95% effectiveness in clinical trials...</span>
+      </button>
+      <button class="sample-chip" onclick="loadSample(this.dataset.text)" data-text="Alien spacecraft lands in New York and scientists are paid to keep it secret from the public forever">
+        <span class="chip-tag fake">Fake</span>
+        <span class="chip-text">Alien spacecraft lands in New York, scientists paid to keep it secret...</span>
+      </button>
+      <button class="sample-chip" onclick="loadSample(this.dataset.text)" data-text="Government announces new policy to improve public transportation infrastructure across major cities in the country">
+        <span class="chip-tag real">Real</span>
+        <span class="chip-text">Government announces major transportation infrastructure policy...</span>
+      </button>
+      <button class="sample-chip" onclick="loadSample(this.dataset.text)" data-text="5G towers are spreading coronavirus and the government is hiding the truth from the public and media">
+        <span class="chip-tag fake">Fake</span>
+        <span class="chip-text">5G towers spreading coronavirus, government hiding the truth...</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Tech pills -->
+  <div class="tech-row">
+    <span class="tech-pill">Python</span>
+    <span class="tech-pill">Scikit-learn</span>
+    <span class="tech-pill">TF-IDF</span>
+    <span class="tech-pill">NLP</span>
+    <span class="tech-pill">Logistic Regression</span>
+    <span class="tech-pill">Naive Bayes</span>
+    <span class="tech-pill">Cosine Similarity</span>
+  </div>
+
+</div>
+
+<footer>TruthScan &mdash; Fake News Detection using Machine Learning</footer>
+
+<script>
+const realNews = [
+  "scientists discover new vaccine that shows effectiveness against flu virus",
+  "government announces new policy to improve public transportation infrastructure",
+  "stock markets rise as economic indicators show positive growth",
+  "researchers publish study on climate change impacts on global weather patterns",
+  "local election results certified after thorough counting process",
+  "new hospital opens in city providing advanced medical care to residents",
+  "university study reveals benefits of regular exercise on mental health",
+  "central bank raises interest rates to control inflation as planned",
+  "international summit reaches agreement on reducing carbon emissions",
+  "tech company launches new product after years of research and development",
+  "court upholds new environmental regulation after legal challenge",
+  "scientists confirm water found on mars surface through new rover data",
+  "government releases annual budget report with detailed expenditure plans",
+  "medical researchers make breakthrough in alzheimers disease treatment",
+  "trade agreement signed between two countries to boost economic ties",
+  "new study shows reading books improves cognitive function in adults",
+  "city council approves new housing project to address shortage",
+  "athlete breaks world record at international championship event",
+  "weather department issues forecast for upcoming monsoon season",
+  "university introduces new computer science curriculum for students"
+];
+
+const fakeNews = [
+  "alien spacecraft lands in new york scientists paid to keep it secret",
+  "drinking bleach cures all diseases doctors do not want you to know",
+  "government puts mind control chips in covid vaccines to track citizens",
+  "famous celebrity secretly reptilian shapeshifter exposed by insider",
+  "moon landing was completely faked in hollywood studio leaked footage",
+  "towers spread coronavirus government hiding the truth from public",
+  "politician caught secretly selling country to foreign power anonymous source",
+  "miracle cure discovered big pharma suppressing it to make money",
+  "secret society controls all world governments through shadow network",
+  "eating raw garlic every hour prevents all known diseases permanently",
+  "scientists admit evolution is completely fake theory exposed finally",
+  "world ends next week according to ancient prophecy hidden by elites",
+  "local water supply poisoned by government to reduce population size",
+  "celebrity deaths staged actors hiding in underground bunkers revealed",
+  "new world order plans to microchip entire population by next year",
+  "ancient civilization discovered underground proves history is lies",
+  "cancer cure hidden by doctors who profit from ongoing treatments",
+  "birds are not real they are government surveillance drones exposed",
+  "flat earth confirmed by leaked documents scientists silenced",
+  "politician sold national secrets for personal gain insider reveals all"
+];
+
+const allDocs = [...realNews, ...fakeNews];
+const labels  = [...Array(realNews.length).fill(1), ...Array(fakeNews.length).fill(0)];
+
+const STOPWORDS = new Set(['the','a','an','and','or','but','in','on','at','to','for','of','with','by','from','is','are','was','were','be','been','has','have','had','do','does','did','will','would','could','should','may','might','that','this','these','those','it','its','as','if','not','no','so','up','out','all','about','after','before','into','through','during','above','below','between','each','other','than','then','them','they','their','there','what','when','where','which','who','how','any','both','few','more','most','some','such','only','own','same','too','very','just','because','while']);
+
+function clean(t) { return t.toLowerCase().replace(/\d+/g,'').replace(/[^\w\s]/g,'').replace(/\s+/g,' ').trim(); }
+function tokenize(t) { return t.split(' ').filter(w => w.length > 2 && !STOPWORDS.has(w)); }
+
+function tfidf(tokens, docs) {
+  const tf = {};
+  tokens.forEach(t => tf[t] = (tf[t]||0)+1);
+  Object.keys(tf).forEach(t => tf[t] /= tokens.length);
+  const out = {};
+  Object.keys(tf).forEach(term => {
+    const df = docs.filter(d => d.includes(term)).length;
+    out[term] = tf[term] * (Math.log((docs.length+1)/(df+1))+1);
+  });
+  return out;
+}
+
+function cosine(a, b) {
+  const keys = new Set([...Object.keys(a),...Object.keys(b)]);
+  let dot=0, mA=0, mB=0;
+  keys.forEach(k => { const va=a[k]||0, vb=b[k]||0; dot+=va*vb; mA+=va*va; mB+=vb*vb; });
+  return mA&&mB ? dot/(Math.sqrt(mA)*Math.sqrt(mB)) : 0;
+}
+
+function predict(text) {
+  const tokens = tokenize(clean(text));
+  if (!tokens.length) return null;
+  const vec = tfidf(tokens, allDocs);
+  let rS=0, fS=0;
+  allDocs.forEach((doc, i) => {
+    const dv = tfidf(tokenize(doc), allDocs);
+    const s  = cosine(vec, dv);
+    labels[i]===1 ? rS+=s : fS+=s;
+  });
+  const total = rS+fS || 1;
+  const rP = rS/total, fP = fS/total;
+  const isReal = rP > fP;
+  return { label: isReal ? 'real' : 'fake', confidence: Math.min(99, Math.round((isReal?rP:fP)*100+15)) };
+}
+
+function updateCount() {
+  document.getElementById('charCount').textContent = document.getElementById('newsInput').value.length;
+}
+
+function analyze() {
+  const text = document.getElementById('newsInput').value.trim();
+  if (!text) { document.getElementById('newsInput').focus(); return; }
+
+  const btn = document.getElementById('analyzeBtn');
+  const spin = document.getElementById('spinner');
+  btn.style.opacity = '0.6';
+  btn.disabled = true;
+  spin.style.display = 'block';
+
+  setTimeout(() => {
+    const result = predict(text);
+    btn.style.opacity = '1';
+    btn.disabled = false;
+    spin.style.display = 'none';
+
+    if (!result) return;
+    const area   = document.getElementById('resultArea');
+    const inner  = document.getElementById('resultInner');
+    const verdict= document.getElementById('resultVerdict');
+    const badge  = document.getElementById('resultBadge');
+    const conf   = document.getElementById('confValue');
+    const bar    = document.getElementById('barFill');
+
+    area.style.display  = 'block';
+    inner.className     = 'result-inner ' + result.label;
+    verdict.textContent = result.label === 'real' ? 'Real News' : 'Fake News';
+    badge.textContent   = result.label === 'real' ? 'Verified' : 'Suspicious';
+    conf.textContent    = result.confidence + '%';
+    bar.style.width     = '0%';
+    setTimeout(() => bar.style.width = result.confidence + '%', 50);
+  }, 600);
+}
+
+function clearAll() {
+  document.getElementById('newsInput').value = '';
+  document.getElementById('charCount').textContent = '0';
+  document.getElementById('resultArea').style.display = 'none';
+}
+
+function loadSample(text) {
+  document.getElementById('newsInput').value = text;
+  updateCount();
+  analyze();
+}
+
+document.getElementById('newsInput').addEventListener('keydown', e => {
+  if (e.ctrlKey && e.key === 'Enter') analyze();
+});
+</script>
+</body>
+</html>
