@@ -12,11 +12,7 @@ import string
 import warnings
 warnings.filterwarnings('ignore')
 
-# ============================================================
-#   FAKE NEWS DETECTION SYSTEM — Enhanced Version
-#   Categories: Politics, Health, Science, Tech, Sports,
-#               Business, World, Entertainment, Environment
-# ============================================================
+
 
 real_news = [
     # POLITICS
